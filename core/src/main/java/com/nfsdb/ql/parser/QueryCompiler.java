@@ -54,6 +54,7 @@ import com.nfsdb.ql.impl.latest.*;
 import com.nfsdb.ql.impl.select.SelectedColumnsRecordSource;
 import com.nfsdb.ql.impl.virtual.VirtualColumnRecordSource;
 import com.nfsdb.ql.model.*;
+import com.nfsdb.ql.ops.ColumnUsage;
 import com.nfsdb.ql.ops.FunctionFactories;
 import com.nfsdb.ql.ops.Signature;
 import com.nfsdb.ql.ops.VirtualColumn;
@@ -691,6 +692,7 @@ public class QueryCompiler {
                 if (filter.getType() != ColumnType.BOOLEAN) {
                     throw new ParserException(im.filter.position, "Boolean expression expected");
                 }
+                filter.checkUsage(im.filter.position, ColumnUsage.WHERE);
 
                 if (filter.isConstant()) {
                     if (filter.getBool(null)) {
@@ -1616,7 +1618,10 @@ public class QueryCompiler {
                 virtualColumns = new ObjList<>();
             }
 
-            VirtualColumn vc = createVirtualColumn(qc.getAst(), rs.getMetadata(), model.getColumnNameHistogram());
+            ExprNode ast = qc.getAst();
+            VirtualColumn vc = createVirtualColumn(ast, rs.getMetadata(), model.getColumnNameHistogram());
+            vc.checkUsage(ast.position, ColumnUsage.SELECT);
+
             vc.setName(qc.getAlias());
             virtualColumns.add(vc);
             groupKeyColumns.add(qc.getAlias());

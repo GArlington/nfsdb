@@ -21,6 +21,7 @@
 
 package com.nfsdb.ql.ops;
 
+import com.nfsdb.ex.ParserException;
 import com.nfsdb.factory.configuration.RecordColumnMetadata;
 import com.nfsdb.io.sink.CharSink;
 import com.nfsdb.ql.Record;
@@ -68,4 +69,6 @@ public interface VirtualColumn extends RecordColumnMetadata {
     void prepare(StorageFacade facade);
 
     void setName(String name);
+
+    void checkUsage(int position, ColumnUsage usage) throws ParserException;
 }

@@ -33,6 +33,11 @@ public abstract class AbstractUnaryOperator extends AbstractVirtualColumn implem
     }
 
     @Override
+    public void checkUsage(int position, ColumnUsage usage) throws ParserException {
+        value.checkUsage(position, usage);
+    }
+
+    @Override
     public boolean isConstant() {
         return value.isConstant();
     }

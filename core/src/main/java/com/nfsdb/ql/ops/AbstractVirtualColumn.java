@@ -21,6 +21,7 @@
 
 package com.nfsdb.ql.ops;
 
+import com.nfsdb.ex.ParserException;
 import com.nfsdb.io.sink.CharSink;
 import com.nfsdb.ql.Record;
 import com.nfsdb.std.DirectInputStream;
@@ -130,6 +131,10 @@ public abstract class AbstractVirtualColumn implements VirtualColumn {
     @Override
     public void setName(String name) {
         this.name = name;
+    }
+
+    @Override
+    public void checkUsage(int position, ColumnUsage usage) throws ParserException {
     }
 
     @Override

@@ -38,6 +38,7 @@ import com.nfsdb.std.ObjHashSet;
 import com.nfsdb.test.tools.AbstractTest;
 import com.nfsdb.test.tools.TestUtils;
 import org.junit.Assert;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -1863,6 +1864,50 @@ public class SingleJournalQueryTest extends AbstractTest {
                 "FYXPVKNCBWLNLRH\t-308\t161.783554077148\t95\t469.783554077148\t403\n";
 
         assertThat(expected, "select id,w,x,z,x + -w, z+-w from tab where and id = 'FYXPVKNCBWLNLRH'");
+    }
+
+    @Test
+    public void testRowNum() throws Exception {
+        createTabWithNaNs2();
+        final String expected = "1\n2\n";
+        assertThat(expected, "select row_number() from tab limit 2");
+    }
+
+    @Test(expected=ParserException.class)
+    public void testRowNumInWhere() throws Exception {
+        createTabWithNaNs2();
+        final String expected = "3\n";
+        assertThat(expected, "select row_number() from tab where row_number() = 3");
+    }
+
+    @Ignore
+    @Test(expected=ParserException.class)
+    public void testRowNumInOrderBy() throws Exception {
+        createTabWithNaNs2();
+        final String expected = "3\n";
+        assertThat(expected, "select 1 from tab t1 order by -row_number()");
+    }
+
+    @Ignore
+    @Test(expected=ParserException.class)
+    public void testRowNumInOrderBy2() throws Exception {
+        createTabWithNaNs2();
+        final String expected = "3\n";
+        assertThat(expected, "select z from tab t1 order by -1 * i2 limit 1");
+    }
+
+    @Test(expected=ParserException.class)
+    public void testRowNumInAggregate() throws Exception {
+        createTabWithNaNs2();
+        final String expected = "3\n";
+        assertThat(expected, "select sum(row_number()) from tab");
+    }
+
+    @Test
+    public void testDoubleRowNum() throws Exception {
+        createTabWithNaNs2();
+        final String expected = "2\n4\n";
+        assertThat(expected, "select 2 * row_number() from tab limit 2");
     }
 
     @Test

@@ -39,6 +39,7 @@ public class VirtualColumnRecordSource extends AbstractImmutableIterator<Record>
     private final RecordMetadata metadata;
     private final VirtualRecord current;
     private RecordCursor<? extends Record> recordCursor;
+    private long rowNum;
 
 
     public VirtualColumnRecordSource(RecordSource<? extends Record> recordSource, ObjList<VirtualColumn> virtualColumns) {
@@ -50,7 +51,7 @@ public class VirtualColumnRecordSource extends AbstractImmutableIterator<Record>
 
     @Override
     public Record getByRowId(long rowId) {
-        current.setBase(recordCursor.getByRowId(rowId));
+        current.setBase(recordCursor.getByRowId(rowId), rowNum);
         return current;
     }
 
@@ -74,6 +75,7 @@ public class VirtualColumnRecordSource extends AbstractImmutableIterator<Record>
     @Override
     public void reset() {
         recordSource.reset();
+        rowNum = 0;
     }
 
     @Override
@@ -88,7 +90,8 @@ public class VirtualColumnRecordSource extends AbstractImmutableIterator<Record>
 
     @Override
     public Record next() {
-        current.setBase(recordCursor.next());
+        ++rowNum;
+        current.setBase(recordCursor.next(), rowNum);
         return current;
     }
 }

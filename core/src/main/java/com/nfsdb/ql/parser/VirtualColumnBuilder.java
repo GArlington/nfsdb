@@ -28,6 +28,7 @@ import com.nfsdb.ex.ParserException;
 import com.nfsdb.factory.configuration.RecordMetadata;
 import com.nfsdb.misc.Chars;
 import com.nfsdb.misc.Numbers;
+import com.nfsdb.ql.AggregatorFunction;
 import com.nfsdb.ql.model.ExprNode;
 import com.nfsdb.ql.ops.*;
 import com.nfsdb.ql.ops.col.*;
@@ -144,10 +145,16 @@ class VirtualColumnBuilder implements PostOrderTreeTraversalAlgo.Visitor {
         }
 
         Function f = factory.newInstance(args);
+        boolean isAggregation = f instanceof AggregatorFunction;
         if (args != null) {
             int n = node.paramCount;
             for (int i = 0; i < n; i++) {
-                f.setArg(i, args.getQuick(i));
+                VirtualColumn arg = args.getQuick(i);
+                if (isAggregation) {
+                    arg.checkUsage(node.position, ColumnUsage.AGGREGATE);
+                }
+
+                f.setArg(i, arg);
             }
         }
         return f.isConstant() ? processConstantExpression(f) : f;

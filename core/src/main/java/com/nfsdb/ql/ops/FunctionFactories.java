@@ -150,6 +150,10 @@ public final class FunctionFactories {
         factories.put(new Signature().setName(name).setParamCount(2).paramType(0, lhst, true).paramType(1, rhst, true), f);
     }
 
+    private static void virUn(String name, ColumnType type, FunctionFactory f) {
+        factories.put(new Signature().setName(name).setParamCount(0), f);
+    }
+
     private static void unSig(String name, ColumnType type, FunctionFactory f) {
         factories.put(new Signature().setName(name).setParamCount(1).paramType(0, type, false), f);
         factories.put(new Signature().setName(name).setParamCount(1).paramType(0, type, true), f);
@@ -380,5 +384,8 @@ public final class FunctionFactories {
         unSigAgg("count", ColumnType.DATE, CountLongAggregator.FACTORY);
         unSigAgg("count", ColumnType.STRING, CountStrAggregator.FACTORY);
         unSigAgg("count", ColumnType.SYMBOL, CountSymAggregator.FACTORY);
+
+        // virtual columns
+        virUn("row_number", ColumnType.LONG, RowNumFunction.FACTORY);
     }
 }

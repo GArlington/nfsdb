@@ -1,5 +1,5 @@
 /*******************************************************************************
- *  _  _ ___ ___     _ _
+ * _  _ ___ ___     _ _
  * | \| | __/ __| __| | |__
  * | .` | _|\__ \/ _` | '_ \
  * |_|\_|_| |___/\__,_|_.__/
@@ -18,57 +18,51 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  ******************************************************************************/
-
 package com.nfsdb.ql.ops;
 
 import com.nfsdb.ex.ParserException;
+import com.nfsdb.ql.Record;
 import com.nfsdb.ql.StorageFacade;
+import com.nfsdb.ql.impl.virtual.VirtualRecord;
+import com.nfsdb.std.ObjList;
 import com.nfsdb.store.ColumnType;
 
-public abstract class AbstractBinaryOperator extends AbstractVirtualColumn implements Function {
-    protected VirtualColumn lhs;
-    protected VirtualColumn rhs;
+public class RowNumFunction extends AbstractVirtualColumn implements Function {
+    public static final RowNumFunction FACTORY = new RowNumFunction();
 
-    protected AbstractBinaryOperator(ColumnType type) {
-        super(type);
+    protected RowNumFunction() {
+        super(ColumnType.LONG);
+    }
+
+    @Override
+    public long getLong(Record rec) {
+        assert rec instanceof VirtualRecord;
+        return rec.getRowId();
     }
 
     @Override
     public void checkUsage(int position, ColumnUsage usage) throws ParserException {
-        lhs.checkUsage(position, usage);
-        rhs.checkUsage(position, usage);
+        if (usage != ColumnUsage.SELECT) {
+            throw new ParserException(position, "Function ROW_NUMBER() cannot be used in " + usage);
+        }
     }
 
     @Override
     public boolean isConstant() {
-        return lhs.isConstant() && rhs.isConstant();
+        return false;
     }
 
     @Override
     public void prepare(StorageFacade facade) {
-        lhs.prepare(facade);
-        rhs.prepare(facade);
+    }
+
+    @Override
+    public Function newInstance(ObjList<VirtualColumn> args) {
+        return this;
     }
 
     @Override
     public void setArg(int pos, VirtualColumn arg) throws ParserException {
-        switch (pos) {
-            case 0:
-                setLhs(arg);
-                break;
-            case 1:
-                setRhs(arg);
-                break;
-            default:
-                throw new ParserException(0, "Too many arguments");
-        }
-    }
-
-    public void setLhs(VirtualColumn lhs) {
-        this.lhs = lhs;
-    }
-
-    public void setRhs(VirtualColumn rhs) {
-        this.rhs = rhs;
+        throw new UnsupportedOperationException();
     }
 }
