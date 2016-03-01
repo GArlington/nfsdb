@@ -95,6 +95,10 @@ public class QImpl implements Q {
         return kvSource(column, new SingleIntHashKeySource(column, variableSource), 1, 0, new IntEqualsRowFilter(column, variableSource));
     }
 
+    public RowSource headEquals(StringRef column, LongVariableSource variableSource) {
+        return kvSource(column, new SingleLongHashKeySource(column, variableSource), 1, 0, new LongEqualsRowFilter(column, variableSource));
+    }
+
     @Override
     public RowSource all() {
         return new AllRowSource();
@@ -190,12 +194,12 @@ public class QImpl implements Q {
         return new SingleStringHashKeySource(column, value);
     }
 
-    public KeySource hashSource(StringRef column, IntArrayList values) {
-        return new IntHashKeySource(column, values);
-    }
-
     @Override
     public JournalSourceLookup lastNKeyLookup(String column, int n, PartitionSource partitionSource) {
         return null;
+    }
+
+    public KeySource hashSource(StringRef column, IntArrayList values) {
+        return new IntHashKeySource(column, values);
     }
 }

@@ -72,20 +72,29 @@ public class JournalMetadataBuilder<T> {
         }
     }
 
-    public SymbolBuilder<T> $sym(String name) {
-        return new SymbolBuilder<>(this, getMeta(name));
+    public BinaryBuilder<T> $bin(String name) {
+        return new BinaryBuilder<>(this, getMeta(name));
+    }
+
+    public JournalMetadataBuilder<T> $date(String name) {
+        getMeta(name).type = ColumnType.DATE;
+        return this;
+    }
+
+    public IntBuilder<T> $int(String name) {
+        return new IntBuilder<>(this, getMeta(name));
+    }
+
+    public LongBuilder<T> $long(String name) {
+        return new LongBuilder<>(this, getMeta(name));
     }
 
     public StringBuilder<T> $str(String name) {
         return new StringBuilder<>(this, getMeta(name));
     }
 
-    public BinaryBuilder<T> $bin(String name) {
-        return new BinaryBuilder<>(this, getMeta(name));
-    }
-
-    public IntBuilder<T> $int(String name) {
-        return new IntBuilder<>(this, getMeta(name));
+    public SymbolBuilder<T> $sym(String name) {
+        return new SymbolBuilder<>(this, getMeta(name));
     }
 
     public JournalMetadataBuilder<T> $ts() {
@@ -98,55 +107,6 @@ public class JournalMetadataBuilder<T> {
             throw new JournalConfigurationException("Invalid column name: %s", name);
         }
         return this;
-    }
-
-    public JournalMetadataBuilder<T> $date(String name) {
-        getMeta(name).type = ColumnType.DATE;
-        return this;
-    }
-
-    public JournalMetadataBuilder<T> location(String location) {
-        this.location = location;
-        return this;
-    }
-
-    public JournalMetadataBuilder<T> partitionBy(PartitionType type) {
-        this.partitionBy = type;
-        return this;
-    }
-
-    public JournalMetadataBuilder<T> recordCountHint(int count) {
-        this.recordCountHint = count;
-        return this;
-    }
-
-    public JournalMetadataBuilder<T> txCountHint(int count) {
-        this.txCountHint = count;
-        return this;
-    }
-
-    public JournalMetadataBuilder<T> key(String key) {
-        this.key = key;
-        return this;
-    }
-
-    public JournalMetadataBuilder<T> openFileTTL(long time, TimeUnit unit) {
-        this.openFileTTL = unit.toMillis(time);
-        return this;
-    }
-
-    public JournalMetadataBuilder<T> lag(long time, TimeUnit unit) {
-        this.lag = (int) unit.toHours(time);
-        return this;
-    }
-
-    public JournalMetadataBuilder<T> nullsFactory(NullsAdaptorFactory<T> factory) {
-        this.nullsFactory = factory;
-        return this;
-    }
-
-    public String getLocation() {
-        return location;
     }
 
     public JournalMetadata<T> build() {
@@ -211,6 +171,58 @@ public class JournalMetadataBuilder<T> {
         );
     }
 
+    public String getLocation() {
+        return location;
+    }
+
+    public JournalMetadataBuilder<T> key(String key) {
+        this.key = key;
+        return this;
+    }
+
+    public JournalMetadataBuilder<T> lag(long time, TimeUnit unit) {
+        this.lag = (int) unit.toHours(time);
+        return this;
+    }
+
+    public JournalMetadataBuilder<T> location(String location) {
+        this.location = location;
+        return this;
+    }
+
+    public JournalMetadataBuilder<T> nullsFactory(NullsAdaptorFactory<T> factory) {
+        this.nullsFactory = factory;
+        return this;
+    }
+
+    public JournalMetadataBuilder<T> openFileTTL(long time, TimeUnit unit) {
+        this.openFileTTL = unit.toMillis(time);
+        return this;
+    }
+
+    public JournalMetadataBuilder<T> partitionBy(PartitionType type) {
+        this.partitionBy = type;
+        return this;
+    }
+
+    public JournalMetadataBuilder<T> recordCountHint(int count) {
+        this.recordCountHint = count;
+        return this;
+    }
+
+    public JournalMetadataBuilder<T> txCountHint(int count) {
+        this.txCountHint = count;
+        return this;
+    }
+
+    private List<Field> getAllFields(List<Field> fields, Class<?> type) {
+        Collections.addAll(fields, type.getDeclaredFields());
+        if (type.getSuperclass() != null) {
+            fields = getAllFields(fields, type.getSuperclass());
+        }
+        return fields;
+    }
+
     private ColumnMetadata getMeta(String name) {
         ColumnMetadata meta = columnMetadata.get(name);
         if (meta == null) {
@@ -256,13 +268,5 @@ public class JournalMetadataBuilder<T> {
             columnMetadata.put(meta.name, meta);
             nameToIndexMap.put(meta.name, nameToIndexMap.size());
         }
-    }
-
-    private List<Field> getAllFields(List<Field> fields, Class<?> type) {
-        Collections.addAll(fields, type.getDeclaredFields());
-        if (type.getSuperclass() != null) {
-            fields = getAllFields(fields, type.getSuperclass());
-        }
-        return fields;
     }
 }

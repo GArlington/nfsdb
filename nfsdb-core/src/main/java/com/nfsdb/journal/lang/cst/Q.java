@@ -24,67 +24,69 @@ import java.util.List;
 
 public interface Q {
 
+    RowSource all();
+
+    RowFilter all(RowFilter... rowFilter);
+
+    RowFilter any(RowFilter... rowFilters);
+
     <T> DataSource<T> ds(JournalSource journalSource, T instance);
 
-    PartitionSource interval(PartitionSource iterator, Interval interval);
+    RowFilter equals(String columnA, String columnB);
+
+    RowFilter equals(String column, int value);
+
+    RowFilter equalsConst(StringRef column, StringRef value);
+
+    RowFilter equalsSymbol(StringRef column, StringRef value);
 
     JournalSource forEachPartition(PartitionSource iterator, RowSource source);
 
     RowSource forEachRow(RowSource source, RowFilter rowFilter);
+
+    RowFilter greaterThan(String column, double value);
+
+    KeySource hashSource(StringRef column, List<String> values);
+
+    KeySource hashSource(StringRef column, StringRef value);
+
+    RowSource headEquals(StringRef column, StringRef value);
+
+    RowSource headEquals(StringRef column, IntVariableSource variableSource);
+
+    RowSource headEquals(StringRef column, LongVariableSource variableSource);
+
+    PartitionSource interval(PartitionSource iterator, Interval interval);
+
+    RowSource join(RowSource source1, RowSource source2);
+
+    RowSource kvSource(StringRef indexName, KeySource keySource);
+
+    RowSource kvSource(StringRef indexName, KeySource keySource, int count, int tail, RowFilter filter);
+
+    JournalSourceLookup lastNKeyLookup(String column, int n, PartitionSource partitionSource);
+
+    RowSource mergeSorted(RowSource source1, RowSource source2);
+
+    RowFilter not(RowFilter rowFilter);
+
+    KeySource singleKeySource(IntVariableSource variableSource);
+
+    PartitionSource source(Journal journal, boolean open);
+
+    PartitionSource source(Journal journal, boolean open, long rowid);
+
+    PartitionSource sourceDesc(Journal journal, boolean open);
+
+    PartitionSource sourceDesc(Journal journal);
+
+    KeySource symbolTableSource(StringRef sym, List<String> values);
+
+    KeySource symbolTableSource(StringRef sym);
 
     RowSource top(int count, RowSource rowSource);
 
     JournalSource top(int count, JournalSource source);
 
     RowSource union(RowSource... source);
-
-    RowSource mergeSorted(RowSource source1, RowSource source2);
-
-    RowSource join(RowSource source1, RowSource source2);
-
-    RowSource kvSource(StringRef indexName, KeySource keySource);
-
-    RowSource headEquals(StringRef column, StringRef value);
-
-    RowSource headEquals(StringRef column, IntVariableSource variableSource);
-
-    RowSource all();
-
-    RowSource kvSource(StringRef indexName, KeySource keySource, int count, int tail, RowFilter filter);
-
-    PartitionSource source(Journal journal, boolean open);
-
-    PartitionSource sourceDesc(Journal journal, boolean open);
-
-    PartitionSource sourceDesc(Journal journal);
-
-    PartitionSource source(Journal journal, boolean open, long rowid);
-
-    RowFilter equalsConst(StringRef column, StringRef value);
-
-    RowFilter equalsSymbol(StringRef column, StringRef value);
-
-    RowFilter equals(String columnA, String columnB);
-
-    RowFilter equals(String column, int value);
-
-    RowFilter greaterThan(String column, double value);
-
-    RowFilter all(RowFilter... rowFilter);
-
-    RowFilter any(RowFilter... rowFilters);
-
-    RowFilter not(RowFilter rowFilter);
-
-    KeySource symbolTableSource(StringRef sym, List<String> values);
-
-    KeySource singleKeySource(IntVariableSource variableSource);
-
-    KeySource symbolTableSource(StringRef sym);
-
-    KeySource hashSource(StringRef column, List<String> values);
-
-    KeySource hashSource(StringRef column, StringRef value);
-
-    JournalSourceLookup lastNKeyLookup(String column, int n, PartitionSource partitionSource);
 }
