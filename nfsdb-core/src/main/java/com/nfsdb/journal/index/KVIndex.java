@@ -46,7 +46,7 @@ public class KVIndex implements Closeable {
     */
 
     public static final int ENTRY_SIZE = 16;
-
+    private final IndexCursor cachedCursor = new IndexCursor();
     MappedFileImpl kData;
     // storage for rows
     // block structure is [ rowid1, rowid2 ..., rowidn, prevBlockOffset]
@@ -55,7 +55,6 @@ public class KVIndex implements Closeable {
     int rowBlockLen;
     long firstEntryOffset;
     long keyBlockSize;
-    private final IndexCursor cachedCursor = new IndexCursor();
     private long keyBlockAddressOffset;
     private long keyBlockSizeOffset;
     private long maxValue;
@@ -148,6 +147,53 @@ public class KVIndex implements Closeable {
         }
     }
 
+    public IndexCursor cachedCursor(int key) {
+        return this.cachedCursor.setKey(key);
+    }
+
+    /**
+     * Closes underlying files.
+     */
+    public void close() {
+        rData.close();
+        kData.close();
+    }
+
+    public void commit() {
+        if (inTransaction) {
+            putLong(kData, keyBlockSizeOffset, keyBlockSize); // 8
+            putLong(kData, keyBlockSizeOffset + 8, maxValue); // 8
+            kData.setAppendOffset(firstEntryOffset + keyBlockSize);
+            putLong(kData, keyBlockAddressOffset, keyBlockSizeOffset); // 8
+            inTransaction = false;
+        }
+    }
+
+    /**
+     * Removes empty space at end of index files. This is useful if your chosen file copy routine does not support
+     * sparse files, e.g. where size of file content significantly smaller then file size in directory catalogue.
+     *
+     * @throws JournalException
+     */
+    public void compact() throws JournalException {
+        kData.compact();
+        rData.compact();
+    }
+
+    /**
+     * Checks if key exists in index. Use case for this method is in combination with #lastValue method.
+     *
+     * @param key value of key
+     * @return true if key has any values associated with it, false otherwise.
+     */
+    public boolean contains(int key) {
+        return getValueCount(key) > 0;
+    }
+
+    public void force() {
+        kData.force();
+    }
+
     public long getTxAddress() {
         return keyBlockSizeOffset;
     }
@@ -163,26 +209,25 @@ public class KVIndex implements Closeable {
         }
     }
 
-    public void refresh() {
-        commit();
-        this.keyBlockSizeOffset = getLong(kData, keyBlockAddressOffset);
-        this.keyBlockSize = getLong(kData, keyBlockSizeOffset);
-        this.maxValue = getLong(kData, keyBlockSizeOffset + 8);
-        this.firstEntryOffset = keyBlockSizeOffset + 16;
-    }
-
-    public void commit() {
-        if (inTransaction) {
-            putLong(kData, keyBlockSizeOffset, keyBlockSize); // 8
-            putLong(kData, keyBlockSizeOffset + 8, maxValue); // 8
-            kData.setAppendOffset(firstEntryOffset + keyBlockSize);
-            putLong(kData, keyBlockAddressOffset, keyBlockSizeOffset); // 8
-            inTransaction = false;
+    /**
+     * Counts values for a key. Uses case for this method is best illustrated by this code examples:
+     * <p>
+     * Note that the loop above is deliberately in reverse order, as #getValueQuick performance diminishes the
+     * father away from last the current index is.
+     * </p>
+     * If it is your intention to iterate through all index values consider #getValues, as it offers better for
+     * this use case.
+     *
+     * @param key value of key
+     * @return number of values associated with key. 0 if either key doesn't exist or it doesn't have values.
+     */
+    public int getValueCount(int key) {
+        long keyOffset = getKeyOffset(key);
+        if (keyOffset >= firstEntryOffset + keyBlockSize) {
+            return 0;
+        } else {
+            return (int) getLong(kData, keyOffset + 8);
         }
-    }
-
-    public void force() {
-        kData.force();
     }
 
     /**
@@ -218,59 +263,6 @@ public class KVIndex implements Closeable {
             }
         }
 
-        return getLong(rData, rowBlockOffset - rowBlockSize + 8 * cellIndex);
-    }
-
-    /**
-     * Checks if key exists in index. Use case for this method is in combination with #lastValue method.
-     *
-     * @param key value of key
-     * @return true if key has any values associated with it, false otherwise.
-     */
-    public boolean contains(int key) {
-        return getValueCount(key) > 0;
-    }
-
-    /**
-     * Counts values for a key. Uses case for this method is best illustrated by this code examples:
-     * <p/>
-     * int c = index.getValueCount(key)
-     * for (int i = c-1; i >=0; i--) {
-     * long value = index.getValueQuick(key, i)
-     * }
-     * <p/>
-     * Note that the loop above is deliberately in reverse order, as #getValueQuick performance diminishes the
-     * father away from last the current index is.
-     * <p/>
-     * If it is your intention to iterate through all index values consider #getValues, as it offers better for
-     * this use case.
-     *
-     * @param key value of key
-     * @return number of values associated with key. 0 if either key doesn't exist or it doesn't have values.
-     */
-    public int getValueCount(int key) {
-        long keyOffset = getKeyOffset(key);
-        if (keyOffset >= firstEntryOffset + keyBlockSize) {
-            return 0;
-        } else {
-            return (int) getLong(kData, keyOffset + 8);
-        }
-    }
-
-    /**
-     * Gets last value for key. If key doesn't exist in index an exception will be thrown. This method has to be used
-     * in combination with #contains. E.g. check if index contains key and if it does - get last value. Thrown
-     * exception is intended to point out breaking of this convention.
-     *
-     * @param key value of key
-     * @return value
-     */
-    @SuppressWarnings("unused")
-    public long lastValue(int key) {
-        long address = keyAddressOrError(key);
-        long rowBlockOffset = Unsafe.getUnsafe().getLong(address);
-        long rowCount = Unsafe.getUnsafe().getLong(address + 8);
-        int cellIndex = (int) ((rowCount - 1) % rowBlockLen);
         return getLong(rData, rowBlockOffset - rowBlockSize + 8 * cellIndex);
     }
 
@@ -339,8 +331,29 @@ public class KVIndex implements Closeable {
         }
     }
 
-    public IndexCursor cachedCursor(int key) {
-        return this.cachedCursor.setKey(key);
+    /**
+     * Gets last value for key. If key doesn't exist in index an exception will be thrown. This method has to be used
+     * in combination with #contains. E.g. check if index contains key and if it does - get last value. Thrown
+     * exception is intended to point out breaking of this convention.
+     *
+     * @param key value of key
+     * @return value
+     */
+    @SuppressWarnings("unused")
+    public long lastValue(int key) {
+        long address = keyAddressOrError(key);
+        long rowBlockOffset = Unsafe.getUnsafe().getLong(address);
+        long rowCount = Unsafe.getUnsafe().getLong(address + 8);
+        int cellIndex = (int) ((rowCount - 1) % rowBlockLen);
+        return getLong(rData, rowBlockOffset - rowBlockSize + 8 * cellIndex);
+    }
+
+    public void refresh() {
+        commit();
+        this.keyBlockSizeOffset = getLong(kData, keyBlockAddressOffset);
+        this.keyBlockSize = getLong(kData, keyBlockSizeOffset);
+        this.maxValue = getLong(kData, keyBlockSizeOffset + 8);
+        this.firstEntryOffset = keyBlockSizeOffset + 16;
     }
 
     /**
@@ -351,25 +364,6 @@ public class KVIndex implements Closeable {
      */
     public long size() {
         return maxValue;
-    }
-
-    /**
-     * Closes underlying files.
-     */
-    public void close() {
-        rData.close();
-        kData.close();
-    }
-
-    /**
-     * Removes empty space at end of index files. This is useful if your chosen file copy routine does not support
-     * sparse files, e.g. where size of file content significantly smaller then file size in directory catalogue.
-     *
-     * @throws JournalException
-     */
-    public void compact() throws JournalException {
-        kData.compact();
-        rData.compact();
     }
 
     public void truncate(long size) {
@@ -425,8 +419,20 @@ public class KVIndex implements Closeable {
         commit();
     }
 
+    long getKeyOffset(long key) {
+        return firstEntryOffset + (key + 1) * ENTRY_SIZE;
+    }
+
     private long getLong(MappedFileImpl storage, long offset) {
         return Unsafe.getUnsafe().getLong(storage.getAddress(offset, 8));
+    }
+
+    private long keyAddressOrError(int key) {
+        long keyOffset = getKeyOffset(key);
+        if (keyOffset >= firstEntryOffset + keyBlockSize) {
+            throw new JournalRuntimeException("Key doesn't exist: %d", key);
+        }
+        return kData.getAddress(keyOffset, ENTRY_SIZE);
     }
 
     private void putLong(MappedFileImpl storage, long offset, long value) {
@@ -470,18 +476,6 @@ public class KVIndex implements Closeable {
         inTransaction = true;
     }
 
-    long getKeyOffset(long key) {
-        return firstEntryOffset + (key + 1) * ENTRY_SIZE;
-    }
-
-    private long keyAddressOrError(int key) {
-        long keyOffset = getKeyOffset(key);
-        if (keyOffset >= firstEntryOffset + keyBlockSize) {
-            throw new JournalRuntimeException("Key doesn't exist: %d", key);
-        }
-        return kData.getAddress(keyOffset, ENTRY_SIZE);
-    }
-
     public class IndexCursor implements Cursor {
         private int remainingBlockCount;
         private int remainingRowCount;
@@ -489,6 +483,28 @@ public class KVIndex implements Closeable {
         private ByteBuffer buffer;
         private int bufPos;
         private long size;
+
+        @Override
+        public void configure(Partition partition) throws JournalException {
+            // nothing to do
+        }
+
+        public boolean hasNext() {
+            return this.remainingRowCount > 0 || this.remainingBlockCount > 0;
+        }
+
+        public long next() {
+            if (remainingRowCount > 0) {
+                return this.buffer.getLong(this.bufPos + --this.remainingRowCount * 8);
+            } else {
+                remainingBlockCount--;
+                this.rowBlockOffset = this.buffer.getLong(this.bufPos + rowBlockLen * 8);
+                this.buffer = rData.getBuffer(rowBlockOffset - rowBlockSize, rowBlockSize);
+                this.bufPos = buffer.position();
+                this.remainingRowCount = rowBlockLen;
+                return this.buffer.getLong(this.bufPos + --this.remainingRowCount * 8);
+            }
+        }
 
         public IndexCursor setKey(int key) {
             this.remainingBlockCount = 0;
@@ -525,30 +541,8 @@ public class KVIndex implements Closeable {
             return this;
         }
 
-        public boolean hasNext() {
-            return this.remainingRowCount > 0 || this.remainingBlockCount > 0;
-        }
-
-        public long next() {
-            if (remainingRowCount > 0) {
-                return this.buffer.getLong(this.bufPos + --this.remainingRowCount * 8);
-            } else {
-                remainingBlockCount--;
-                this.rowBlockOffset = this.buffer.getLong(this.bufPos + rowBlockLen * 8);
-                this.buffer = rData.getBuffer(rowBlockOffset - rowBlockSize, rowBlockSize);
-                this.bufPos = buffer.position();
-                this.remainingRowCount = rowBlockLen;
-                return this.buffer.getLong(this.bufPos + --this.remainingRowCount * 8);
-            }
-        }
-
         public long size() {
             return size;
-        }
-
-        @Override
-        public void configure(Partition partition) throws JournalException {
-            // nothing to do
         }
     }
 }

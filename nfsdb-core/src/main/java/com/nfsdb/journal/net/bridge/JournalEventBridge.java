@@ -27,21 +27,6 @@ import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;
 
 import static java.util.Arrays.copyOf;
 
-/**
- * <pre>
- *                                                             +---------+
- *                                                       +---> | AGENT 1 |----+          +--------------+
- * +----------+                                          |     +---------+    |     +--> | writer 1 ack |
- * | writer 1 +----+                                     |                    |     |    +--------------+
- * +----------+    |      +-------+        +--------+    |     +---------+    |     |
- *                 +----> | IN_RB +------> | OUT RB +----+---> | AGENT 2 |----+-----+
- *                 |      +-------+        +--------+    |     +---------+    |     |
- * +----------+    |                                     |                    |     |    +--------------+
- * | writer 2 +----+                                     |     +---------+    |     +--> | writer 2 ack |
- * +----------+                                          +---> | AGENT 3 |----+          +--------------+
- *                                                             +---------+
- * </pre>
- */
 public class JournalEventBridge {
 
     private static final AtomicReferenceFieldUpdater<JournalEventBridge, AgentBarrierHolder> AGENT_SEQUENCES_UPDATER =
@@ -84,33 +69,6 @@ public class JournalEventBridge {
         inRingBuffer.addGatingSequences(batchEventProcessor.getSequence());
     }
 
-    public void start() {
-        executor.submit(batchEventProcessor);
-    }
-
-    public void halt() {
-        executor.shutdown();
-        while (batchEventProcessor.isRunning()) {
-            batchEventProcessor.halt();
-        }
-    }
-
-    public void publish(final int journalIndex, final long timestamp) {
-        long sequence = inRingBuffer.next();
-        JournalEvent event = inRingBuffer.get(sequence);
-        event.setIndex(journalIndex);
-        event.setTimestamp(timestamp);
-        inRingBuffer.publish(sequence);
-    }
-
-    public RingBuffer<JournalEvent> getOutRingBuffer() {
-        return outRingBuffer;
-    }
-
-    public SequenceBarrier getOutBarrier() {
-        return outBarrier;
-    }
-
     public Sequence createAgentSequence() {
         Sequence sequence = new Sequence(outBarrier.getCursor());
         outRingBuffer.addGatingSequences(sequence);
@@ -127,6 +85,33 @@ public class JournalEventBridge {
         while (!AGENT_SEQUENCES_UPDATER.compareAndSet(this, currentHolder, updatedHolder));
 
         return sequence;
+    }
+
+    public TxFuture createRemoteCommitFuture(int journalIndex, long timestamp) {
+        return new RemoteCommitFuture(outRingBuffer, agentBarrierHolder.barrier, journalIndex, timestamp);
+    }
+
+    public SequenceBarrier getOutBarrier() {
+        return outBarrier;
+    }
+
+    public RingBuffer<JournalEvent> getOutRingBuffer() {
+        return outRingBuffer;
+    }
+
+    public void halt() {
+        executor.shutdown();
+        while (batchEventProcessor.isRunning()) {
+            batchEventProcessor.halt();
+        }
+    }
+
+    public void publish(final int journalIndex, final long timestamp) {
+        long sequence = inRingBuffer.next();
+        JournalEvent event = inRingBuffer.get(sequence);
+        event.setIndex(journalIndex);
+        event.setTimestamp(timestamp);
+        inRingBuffer.publish(sequence);
     }
 
     public void removeAgentSequence(Sequence sequence) {
@@ -165,7 +150,7 @@ public class JournalEventBridge {
         outRingBuffer.removeGatingSequence(sequence);
     }
 
-    public TxFuture createRemoteCommitFuture(int journalIndex, long timestamp) {
-        return new RemoteCommitFuture(outRingBuffer, agentBarrierHolder.barrier, journalIndex, timestamp);
+    public void start() {
+        executor.submit(batchEventProcessor);
     }
 }

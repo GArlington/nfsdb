@@ -18,69 +18,13 @@ package com.nfsdb.journal.utils;
 public class Base64 {
 
     private static final char[] encodeMap = initEncodeMap();
-    private static final byte[] decodeMap = initDecodeMap();
     private static final byte PADDING = 127;
-
-    public static char encode(int i) {
-        return encodeMap[i & 0x3F];
-    }
-
-    public static String _printBase64Binary(byte[] input) {
-        return _printBase64Binary(input, 0, input.length);
-    }
-
-    public static String _printBase64Binary(byte[] input, int offset, int len) {
-        char[] buf = new char[((len + 2) / 3) * 4];
-        int ptr = _printBase64Binary(input, offset, len, buf, 0);
-        assert ptr == buf.length;
-        return new String(buf);
-    }
-
-    /**
-     * Encodes a byte array into a char array by doing base64 encoding.
-     * <p/>
-     * The caller must supply a big enough buffer.
-     *
-     * @return the value of {@code ptr+((len+2)/3)*4}, which is the new offset
-     * in the output buffer where the further bytes should be placed.
-     */
-    public static int _printBase64Binary(byte[] input, int offset, int len, char[] buf, int ptr) {
-        // encode elements until only 1 or 2 elements are left to encode
-        int remaining = len;
-        int i;
-        for (i = offset; remaining >= 3; remaining -= 3, i += 3) {
-            buf[ptr++] = encode(input[i] >> 2);
-            buf[ptr++] = encode(
-                    ((input[i] & 0x3) << 4)
-                            | ((input[i + 1] >> 4) & 0xF));
-            buf[ptr++] = encode(
-                    ((input[i + 1] & 0xF) << 2)
-                            | ((input[i + 2] >> 6) & 0x3));
-            buf[ptr++] = encode(input[i + 2] & 0x3F);
-        }
-        // encode when exactly 1 element (left) to encode
-        if (remaining == 1) {
-            buf[ptr++] = encode(input[i] >> 2);
-            buf[ptr++] = encode(((input[i]) & 0x3) << 4);
-            buf[ptr++] = '=';
-            buf[ptr++] = '=';
-        }
-        // encode when exactly 2 elements (left) to encode
-        if (remaining == 2) {
-            buf[ptr++] = encode(input[i] >> 2);
-            buf[ptr++] = encode(((input[i] & 0x3) << 4)
-                    | ((input[i + 1] >> 4) & 0xF));
-            buf[ptr++] = encode((input[i + 1] & 0xF) << 2);
-            buf[ptr++] = '=';
-        }
-        return ptr;
-    }
+    private static final byte[] decodeMap = initDecodeMap();
 
     /**
      * @param text base64Binary data is likely to be long, and decoding requires
      *             each character to be accessed twice (once for counting length, another
      *             for decoding.)
-     *             <p/>
      *             A benchmark showed that taking {@link String} is faster, presumably
      *             because JIT can inline a lot of string access (with data of 1K chars, it was twice as fast)
      */
@@ -128,6 +72,60 @@ public class Base64 {
         return nb;
     }
 
+    public static String _printBase64Binary(byte[] input, int offset, int len) {
+        char[] buf = new char[((len + 2) / 3) * 4];
+        int ptr = _printBase64Binary(input, offset, len, buf, 0);
+        assert ptr == buf.length;
+        return new String(buf);
+    }
+
+    /**
+     * Encodes a byte array into a char array by doing base64 encoding.
+     * The caller must supply a big enough buffer.
+     *
+     * @return the value of {@code ptr+((len+2)/3)*4}, which is the new offset
+     * in the output buffer where the further bytes should be placed.
+     */
+    public static int _printBase64Binary(byte[] input, int offset, int len, char[] buf, int ptr) {
+        // encode elements until only 1 or 2 elements are left to encode
+        int remaining = len;
+        int i;
+        for (i = offset; remaining >= 3; remaining -= 3, i += 3) {
+            buf[ptr++] = encode(input[i] >> 2);
+            buf[ptr++] = encode(
+                    ((input[i] & 0x3) << 4)
+                            | ((input[i + 1] >> 4) & 0xF));
+            buf[ptr++] = encode(
+                    ((input[i + 1] & 0xF) << 2)
+                            | ((input[i + 2] >> 6) & 0x3));
+            buf[ptr++] = encode(input[i + 2] & 0x3F);
+        }
+        // encode when exactly 1 element (left) to encode
+        if (remaining == 1) {
+            buf[ptr++] = encode(input[i] >> 2);
+            buf[ptr++] = encode(((input[i]) & 0x3) << 4);
+            buf[ptr++] = '=';
+            buf[ptr++] = '=';
+        }
+        // encode when exactly 2 elements (left) to encode
+        if (remaining == 2) {
+            buf[ptr++] = encode(input[i] >> 2);
+            buf[ptr++] = encode(((input[i] & 0x3) << 4)
+                    | ((input[i + 1] >> 4) & 0xF));
+            buf[ptr++] = encode((input[i + 1] & 0xF) << 2);
+            buf[ptr++] = '=';
+        }
+        return ptr;
+    }
+
+    public static String _printBase64Binary(byte[] input) {
+        return _printBase64Binary(input, 0, input.length);
+    }
+
+    public static char encode(int i) {
+        return encodeMap[i & 0x3F];
+    }
+
     private static char[] initEncodeMap() {
         char[] map = new char[64];
         int i;
@@ -148,20 +146,17 @@ public class Base64 {
 
     /**
      * computes the length of binary data speculatively.
-     * <p/>
-     * <p/>
+     * <br>
      * Our requirement is to create byte[] of the exact length to store the binary data.
      * If we do this in a straight-forward way, it takes two passes over the data.
      * Experiments show that this is a non-trivial overhead (35% or so is spent on
      * the first pass in calculating the length.)
-     * <p/>
-     * <p/>
+     * <br>
      * So the approach here is that we compute the length speculatively, without looking
      * at the whole contents. The obtained speculative value is never less than the
      * actual length of the binary data, but it may be bigger. So if the speculation
      * goes wrong, we'll pay the cost of reallocation and buffer copying.
-     * <p/>
-     * <p/>
+     * <br>
      * If the base64 text is tightly packed with no indentation nor illegal char
      * (like what most web services produce), then the speculation of this method
      * will be correct, so we get the performance benefit.

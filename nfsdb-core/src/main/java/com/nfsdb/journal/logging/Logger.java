@@ -22,40 +22,27 @@ import java.util.logging.LogRecord;
 
 /**
  * Logger class with lazy evaluation.
- * <p/>
+ * <p>
  * Create messages with the %s string converter as follows:
  * String a = "example";
  * String b = "message";
  * log.debug("This is an %s of a %s to log.", a, b);
+ * </p>
  */
 public class Logger {
     private final java.util.logging.Logger logger;
 
     /////////////////////////////////////////////////////////////////
 
+    private Logger(Class<?> aClass) {
+        logger = java.util.logging.Logger.getLogger(aClass.getName());
+    }
+
+    /////////////////////////////////////////////////////////////////
+
     public static Logger getLogger(Class<?> clazz) {
         return new Logger(clazz);
     }
-
-    /////////////////////////////////////////////////////////////////
-
-    public void trace(java.lang.Object message) {
-        logger.finest(message.toString());
-    }
-
-
-    public void trace(String format, Object... args) {
-        if (isTraceEnabled()) {
-            log(Level.FINEST, String.format(format, args));
-        }
-    }
-
-    public boolean isTraceEnabled() {
-        return logger.isLoggable(Level.FINEST);
-    }
-
-
-    /////////////////////////////////////////////////////////////////
 
     public void debug(java.lang.Object message) {
         logger.fine(message.toString());
@@ -65,14 +52,13 @@ public class Logger {
         log(Level.FINE, message.toString(), throwable);
     }
 
+
+    /////////////////////////////////////////////////////////////////
+
     public void debug(String format, Object... args) {
         if (isDebugEnabled()) {
             log(Level.FINE, String.format(format, args));
         }
-    }
-
-    public boolean isDebugEnabled() {
-        return logger.isLoggable(Level.FINE);
     }
 
     public void debug(String format, java.lang.Throwable throwable, Object... args) {
@@ -81,7 +67,27 @@ public class Logger {
         }
     }
 
+    public void error(java.lang.Object message) {
+        logger.severe(message.toString());
+    }
+
+    public void error(java.lang.Object message, java.lang.Throwable throwable) {
+        log(Level.SEVERE, message.toString(), throwable);
+    }
+
+    public void error(String format, Object... args) {
+        if (isErrorEnabled()) {
+            log(Level.SEVERE, String.format(format, args));
+        }
+    }
+
     /////////////////////////////////////////////////////////////////
+
+    public void error(String format, java.lang.Throwable throwable, Object... args) {
+        if (isErrorEnabled()) {
+            log(Level.SEVERE, String.format(format, args), throwable);
+        }
+    }
 
     public void info(java.lang.Object message) {
         log(Level.INFO, message.toString());
@@ -97,18 +103,44 @@ public class Logger {
         }
     }
 
-    public boolean isInfoEnabled() {
-        return logger.isLoggable(Level.INFO);
-    }
-
     public void info(String format, java.lang.Throwable throwable, Object... args) {
         if (isInfoEnabled()) {
             log(Level.INFO, String.format(format, args), throwable);
         }
     }
 
+    public boolean isDebugEnabled() {
+        return logger.isLoggable(Level.FINE);
+    }
+
+    public boolean isErrorEnabled() {
+        return logger.isLoggable(Level.SEVERE);
+    }
+
+    public boolean isInfoEnabled() {
+        return logger.isLoggable(Level.INFO);
+    }
+
+    public boolean isTraceEnabled() {
+        return logger.isLoggable(Level.FINEST);
+    }
+
+    /////////////////////////////////////////////////////////////////
+
     public boolean isWarnEnabled() {
         return logger.isLoggable(Level.INFO);
+    }
+
+    /////////////////////////////////////////////////////////////////
+
+    public void trace(java.lang.Object message) {
+        logger.finest(message.toString());
+    }
+
+    public void trace(String format, Object... args) {
+        if (isTraceEnabled()) {
+            log(Level.FINEST, String.format(format, args));
+        }
     }
 
     public void warn(java.lang.Object message) {
@@ -119,38 +151,6 @@ public class Logger {
         if (isWarnEnabled()) {
             log(Level.WARNING, String.format(format, args));
         }
-    }
-
-    public void error(java.lang.Object message) {
-        logger.severe(message.toString());
-    }
-
-    /////////////////////////////////////////////////////////////////
-
-    public void error(java.lang.Object message, java.lang.Throwable throwable) {
-        log(Level.SEVERE, message.toString(), throwable);
-    }
-
-    /////////////////////////////////////////////////////////////////
-
-    public void error(String format, Object... args) {
-        if (isErrorEnabled()) {
-            log(Level.SEVERE, String.format(format, args));
-        }
-    }
-
-    public boolean isErrorEnabled() {
-        return logger.isLoggable(Level.SEVERE);
-    }
-
-    public void error(String format, java.lang.Throwable throwable, Object... args) {
-        if (isErrorEnabled()) {
-            log(Level.SEVERE, String.format(format, args), throwable);
-        }
-    }
-
-    private Logger(Class<?> aClass) {
-        logger = java.util.logging.Logger.getLogger(aClass.getName());
     }
 
     private void log(Level level, String message) {

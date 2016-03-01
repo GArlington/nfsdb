@@ -30,6 +30,9 @@ public final class ByteBuffers {
 
     private static final int[] multipliers = new int[]{1, 3, 5, 7, 9, 11, 13};
 
+    private ByteBuffers() {
+    }
+
     public static void copy(ByteBuffer from, WritableByteChannel to) throws JournalNetworkException {
         copy(from, to, from.remaining());
     }
@@ -91,104 +94,6 @@ public final class ByteBuffers {
         copy(from, to, to == null ? 0 : to.remaining());
     }
 
-    /**
-     * Releases ByteBuffer is possible. Call semantics should be as follows:
-     * <p/>
-     * ByteBuffer buffer = ....
-     * <p/>
-     * buffer = release(buffer);
-     *
-     * @param buffer direct byte buffer
-     * @return null if buffer is released or same buffer if release is not possible.
-     */
-    public static <T extends ByteBuffer> T release(final T buffer) {
-        if (buffer != null) {
-            if (buffer instanceof DirectBuffer) {
-                Cleaner cleaner = ((DirectBuffer) buffer).cleaner();
-                if (cleaner != null) {
-                    cleaner.clean();
-                    return null;
-                }
-            }
-        }
-        return buffer;
-    }
-
-    public static void putStringW(ByteBuffer buffer, String value) {
-        if (value == null) {
-            buffer.putChar((char) 0);
-        } else {
-            buffer.putChar((char) value.length());
-            putStr(buffer, value);
-        }
-    }
-
-    public static void putStringDW(ByteBuffer buffer, String value) {
-        if (value == null) {
-            buffer.putInt(0);
-        } else {
-            buffer.putInt(value.length());
-            putStr(buffer, value);
-        }
-    }
-
-    public static void putLongW(ByteBuffer buffer, long array[]) {
-        if (array == null) {
-            buffer.putChar((char) 0);
-        } else {
-            int p = buffer.position();
-            buffer.putChar(p, (char) array.length);
-            p += 2;
-            for (int i = 0; i < array.length; i++) {
-                buffer.putLong(p, array[i]);
-                p += 8;
-            }
-            buffer.position(p);
-        }
-    }
-
-    public static void putIntW(ByteBuffer buffer, int array[]) {
-        if (array == null) {
-            buffer.putChar((char) 0);
-        } else {
-            int p = buffer.position();
-            buffer.putChar(p, (char) array.length);
-            p += 2;
-            for (int i = 0; i < array.length; i++) {
-                buffer.putInt(p, array[i]);
-                p += 4;
-            }
-            buffer.position(p);
-        }
-    }
-
-    public static int getBitHint(int recSize, int recCount) {
-        long target = ((long) recSize) * recCount;
-        long minDeviation = Long.MAX_VALUE;
-        int resultBits = 0;
-        for (int i = 0; i < multipliers.length; i++) {
-            int m = multipliers[i];
-            int bits = Math.min(30, 32 - Integer.numberOfLeadingZeros(recSize * recCount / m));
-            long actual = (1 << bits) * m;
-
-            long deviation;
-            if (target / actual > multipliers[multipliers.length - 1]) {
-                return bits;
-            }
-
-            if (actual <= target) {
-                deviation = 100 + ((target % actual) * 100 / (1 << bits));
-            } else {
-                deviation = (actual * 100) / target;
-            }
-            if (deviation < minDeviation) {
-                minDeviation = deviation;
-                resultBits = bits;
-            }
-        }
-        return resultBits;
-    }
-
     public static int copy(ByteBuffer from, ByteBuffer to, long count) {
         int result = 0;
         if (to != null && to.remaining() > 0) {
@@ -222,6 +127,63 @@ public final class ByteBuffers {
         return 0;
     }
 
+    public static int getBitHint(int recSize, int recCount) {
+        long target = ((long) recSize) * recCount;
+        long minDeviation = Long.MAX_VALUE;
+        int resultBits = 0;
+        for (int i = 0; i < multipliers.length; i++) {
+            int m = multipliers[i];
+            int bits = Math.min(30, 32 - Integer.numberOfLeadingZeros(recSize * recCount / m));
+            long actual = (1 << bits) * m;
+
+            long deviation;
+            if (target / actual > multipliers[multipliers.length - 1]) {
+                return bits;
+            }
+
+            if (actual <= target) {
+                deviation = 100 + ((target % actual) * 100 / (1 << bits));
+            } else {
+                deviation = (actual * 100) / target;
+            }
+            if (deviation < minDeviation) {
+                minDeviation = deviation;
+                resultBits = bits;
+            }
+        }
+        return resultBits;
+    }
+
+    public static void putIntW(ByteBuffer buffer, int array[]) {
+        if (array == null) {
+            buffer.putChar((char) 0);
+        } else {
+            int p = buffer.position();
+            buffer.putChar(p, (char) array.length);
+            p += 2;
+            for (int i = 0; i < array.length; i++) {
+                buffer.putInt(p, array[i]);
+                p += 4;
+            }
+            buffer.position(p);
+        }
+    }
+
+    public static void putLongW(ByteBuffer buffer, long array[]) {
+        if (array == null) {
+            buffer.putChar((char) 0);
+        } else {
+            int p = buffer.position();
+            buffer.putChar(p, (char) array.length);
+            p += 2;
+            for (int i = 0; i < array.length; i++) {
+                buffer.putLong(p, array[i]);
+                p += 8;
+            }
+            buffer.position(p);
+        }
+    }
+
     public static void putStr(ByteBuffer buffer, String value) {
         int p = buffer.position();
         for (int i = 0; i < value.length(); i++) {
@@ -231,6 +193,44 @@ public final class ByteBuffers {
         buffer.position(p);
     }
 
-    private ByteBuffers() {
+    public static void putStringDW(ByteBuffer buffer, String value) {
+        if (value == null) {
+            buffer.putInt(0);
+        } else {
+            buffer.putInt(value.length());
+            putStr(buffer, value);
+        }
+    }
+
+    public static void putStringW(ByteBuffer buffer, String value) {
+        if (value == null) {
+            buffer.putChar((char) 0);
+        } else {
+            buffer.putChar((char) value.length());
+            putStr(buffer, value);
+        }
+    }
+
+    /**
+     * Releases ByteBuffer is possible. Call semantics should be as follows:
+     * <br>
+     * ByteBuffer buffer = ....
+     * <br>
+     * buffer = release(buffer);
+     *
+     * @param buffer direct byte buffer
+     * @return null if buffer is released or same buffer if release is not possible.
+     */
+    public static <T extends ByteBuffer> T release(final T buffer) {
+        if (buffer != null) {
+            if (buffer instanceof DirectBuffer) {
+                Cleaner cleaner = ((DirectBuffer) buffer).cleaner();
+                if (cleaner != null) {
+                    cleaner.clean();
+                    return null;
+                }
+            }
+        }
+        return buffer;
     }
 }

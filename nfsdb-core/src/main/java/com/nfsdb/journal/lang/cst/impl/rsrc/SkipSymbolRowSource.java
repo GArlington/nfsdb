@@ -25,11 +25,14 @@ import gnu.trove.set.TIntSet;
 import gnu.trove.set.hash.TIntHashSet;
 
 /**
+ * <p>
  * Takes stream of rowids, converts them to int values of FixedColumn and
  * returns rowids for non-repeated int values. Rowids returned on first in - first out basis.
- * <p/>
+ * </p>
+ * <p>
  * One of use cases might be streaming of journal in reverse chronological order (latest rows first)
  * via this filter to receive last records for every value of given column.
+ * </p>
  */
 public class SkipSymbolRowSource implements RowSource, RowCursor {
 
@@ -44,6 +47,23 @@ public class SkipSymbolRowSource implements RowSource, RowCursor {
     public SkipSymbolRowSource(RowSource delegate, StringRef symbolName) {
         this.delegate = delegate;
         this.symbolName = symbolName;
+    }
+
+    @Override
+    public RowCursor cursor(PartitionSlice slice) {
+        if (columnIndex == -1) {
+            columnIndex = slice.partition.getJournal().getMetadata().getColumnIndex(symbolName.value);
+        }
+        column = (FixedColumn) slice.partition.getAbstractColumn(columnIndex);
+        cursor = delegate.cursor(slice);
+        return this;
+    }
+
+    @Override
+    public void reset() {
+        columnIndex = -1;
+        delegate.reset();
+        set.clear();
     }
 
     @Override
@@ -63,22 +83,5 @@ public class SkipSymbolRowSource implements RowSource, RowCursor {
     @Override
     public long next() {
         return rowid;
-    }
-
-    @Override
-    public RowCursor cursor(PartitionSlice slice) {
-        if (columnIndex == -1) {
-            columnIndex = slice.partition.getJournal().getMetadata().getColumnIndex(symbolName.value);
-        }
-        column = (FixedColumn) slice.partition.getAbstractColumn(columnIndex);
-        cursor = delegate.cursor(slice);
-        return this;
-    }
-
-    @Override
-    public void reset() {
-        columnIndex = -1;
-        delegate.reset();
-        set.clear();
     }
 }
